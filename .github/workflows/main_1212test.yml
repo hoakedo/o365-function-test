@@ -26,9 +26,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_4AD3D1C7C1424D759C7D98FE79F0C3F3 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BA837003721E44138B9EE4701B00202E }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7D54481E45704C67A2E585952DEC138E }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
@@ -37,4 +37,5 @@ jobs:
           app-name: '1212test'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+
           
