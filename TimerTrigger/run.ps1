@@ -134,8 +134,12 @@ function Write-OMSLogfile {
 
         # Add DateTime to hashtable
         #$logdata.add("DateTime", $dateTime)
-        $logdata | Add-Member -MemberType NoteProperty -Name "DateTime" -Value $dateTime
-
+        #$logdata | Add-Member -MemberType NoteProperty -Name "DateTime" -Value $dateTime
+		if($logdata -is [System.Collections.IEnumerable] -and -not ($logdata -is [string])){
+  		  # batch: Do NOT Add-Member DateTime here
+		} else {
+   		 $logdata | Add-Member -MemberType NoteProperty -Name "DateTime" -Value $dateTime -Force
+		}	
         #Build the JSON file
         $logMessage = ConvertTo-Json $logdata -Depth 20
         Write-Verbose -Message $logMessage
@@ -186,6 +190,9 @@ function Get-O365Data{
     $contentTypes = $env:contentTypes.split(",")
     #Loop for each content Type like Audit.General
     foreach($contentType in $contentTypes){
+	#追加
+	$batch = New-Object System.Collections.Generic.List[object]
+	$batchSize = 200
         $listAvailableContentUri = "https://$managementApi/api/v1.0/$tenantGUID/activity/feed/subscriptions/content?contentType=$contentType&PublisherIdentifier=$env:publisher&startTime=$startTime&endTime=$endTime"
         do {
             #List Available Content
@@ -204,7 +211,12 @@ function Get-O365Data{
                         #We dont need Cloud App Security Alerts due to MCAS connector
                         if(($event.Source) -ne "Cloud App Security"){
                             #Write each event to Log A
-                            $writeResult = Write-OMSLogfile (Get-Date) $env:customLogName $event $env:workspaceId $env:workspaceKey
+                            #$writeResult = Write-OMSLogfile (Get-Date) $env:customLogName $event $env:workspaceId $env:workspaceKey
+							$batch.Add($event)
+							if($batch.Count -ge $batchSize){
+ 								$null = Write-OMSLogfile (Get-Date) $env:customLogName $batch $env:workspaceId $env:workspaceKey
+  								$batch.Clear()
+							}
                             #$writeResult
                         }
                     }
@@ -215,7 +227,12 @@ function Get-O365Data{
                             #We dont need Cloud App Security Alerts due to MCAS connector
                             if(($event.Source) -ne "Cloud App Security"){
                                 #write each event to Log A
-                                $writeResult = Write-OMSLogfile (Get-Date) $env:customLogName $event $env:workspaceId $env:workspaceKey
+                                #$writeResult = Write-OMSLogfile (Get-Date) $env:customLogName $event $env:workspaceId $env:workspaceKey
+								$batch.Add($event)
+								if($batch.Count -ge $batchSize){
+ 									$null = Write-OMSLogfile (Get-Date) $env:customLogName $batch $env:workspaceId $env:workspaceKey
+  									$batch.Clear()
+								}
                                 #$writeResult
                             }
                         }
@@ -231,6 +248,11 @@ function Get-O365Data{
                 $listAvailableContentUri = $nextPageResult.Headers.NextPageUrl
             }
             Else{$nextPage = $false}
+		# Flush remaining batch
+		if($batch.Count -gt 0){
+  		  $null = Write-OMSLogfile (Get-Date) $env:customLogName $batch $env:workspaceId $env:workspaceKey
+  		  $batch.Clear()
+		}
         } until ($nextPage -eq $false)
     }
 }
@@ -277,21 +299,39 @@ if ([string]::IsNullOrWhiteSpace($azstoragestring)) {
 }
 #####
 $Context = New-AzStorageContext -ConnectionString $azstoragestring
-if((Get-AzStorageContainer -Context $Context).Name -contains "lastlog"){
-    #Set Container
-    $Blob = Get-AzStorageBlob -Context $Context -Container (Get-AzStorageContainer -Name "lastlog" -Context $Context).Name -Blob "lastlog.log"
+$containerName = "lastlog"
+$blobName      = "lastlog.log"
+
+# ① コンテナを先に必ず用意
+$azStorageContainer = Get-AzStorageContainer -Name $containerName -Context $Context -ErrorAction SilentlyContinue
+if (-not $azStorageContainer) {
+    $azStorageContainer = New-AzStorageContainer -Name $containerName -Context $Context
+}
+
+# ② Blob があれば読む、なければ初期値
+$blob = Get-AzStorageBlob -Context $Context -Container $containerName -Blob $blobName -ErrorAction SilentlyContinue
+if ($blob) {
     $lastlogTime = $blob.ICloudBlob.DownloadText()
-    $startTime = $lastlogTime | Get-Date -Format yyyy-MM-ddTHH:mm:ss
-    $endTime | Out-File "$env:TEMP\lastlog.log"
-    Set-AzStorageBlobContent -file "$env:TEMP\lastlog.log" -Container (Get-AzStorageContainer -Name "lastlog" -Context $Context).Name -Context $Context -Force
+    $startTime   = $lastlogTime | Get-Date -Format yyyy-MM-ddTHH:mm:ss
+} else {
+    $startTime   = $currentUTCtime.AddSeconds(-300) | Get-Date -Format yyyy-MM-ddTHH:mm:ss
 }
-else {
-    #create container
-    $azStorageContainer = New-AzStorageContainer -Name "lastlog" -Context $Context
-    $endTime | Out-File "$env:TEMP\lastlog.log"
-    Set-AzStorageBlobContent -file "$env:TEMP\lastlog.log" -Container $azStorageContainer.name -Context $Context -Force
-    $startTime = $currentUTCtime.AddSeconds(-300) | Get-Date -Format yyyy-MM-ddTHH:mm:ss
-}
+
+#if((Get-AzStorageContainer -Context $Context).Name -contains "lastlog"){
+#    #Set Container
+#    $Blob = Get-AzStorageBlob -Context $Context -Container (Get-AzStorageContainer -Name "lastlog" -Context $Context).Name -Blob "lastlog.log"
+#    $lastlogTime = $blob.ICloudBlob.DownloadText()
+#    $startTime = $lastlogTime | Get-Date -Format yyyy-MM-ddTHH:mm:ss
+#    #$endTime | Out-File "$env:TEMP\lastlog.log"
+#    #Set-AzStorageBlobContent -file "$env:TEMP\lastlog.log" -Container (Get-AzStorageContainer -Name "lastlog" -Context $Context).Name -Context $Context -Force
+#}
+#else {
+#    #create container
+#    $azStorageContainer = New-AzStorageContainer -Name "lastlog" -Context $Context
+#    #$endTime | Out-File "$env:TEMP\lastlog.log"
+#    #Set-AzStorageBlobContent -file "$env:TEMP\lastlog.log" -Container $azStorageContainer.name -Context $Context -Force
+#    $startTime = $currentUTCtime.AddSeconds(-300) | Get-Date -Format yyyy-MM-ddTHH:mm:ss
+#}
 $startTime
 $endTime
 $lastlogTime
@@ -299,14 +339,10 @@ $lastlogTime
 
 $headerParams = Get-AuthToken $env:clientID $env:clientSecret $env:domain $env:tenantGuid
 Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
-
+#追加
+$endTime | Out-File "$env:TEMP\lastlog.log"
+Set-AzStorageBlobContent -File "$env:TEMP\lastlog.log" -Container $containerName -Blob $blobName -Context $Context -Force
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
-
-
-
-
-
-
 
