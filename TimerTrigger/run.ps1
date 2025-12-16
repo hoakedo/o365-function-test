@@ -21,7 +21,7 @@ Write-Host ("AzureWebJobsStorageInfo=" + (Get-ConnInfo $env:AzureWebJobsStorage)
 
 
 # Input bindings are passed in via param block.
-param($Timer)
+#param($Timer)
 
 #Import-module .\TimerTrigger\modules\Write-OMSLogfile.ps1
 ###################################################################################
@@ -291,10 +291,11 @@ if (-Not [string]::IsNullOrEmpty($managementApi)){
 
 #add last run time to blob file to ensure no missed packages
 $endTime = $currentUTCtime | Get-Date -Format yyyy-MM-ddTHH:mm:ss
-$azstoragestring = $Env:WEBSITE_CONTENTAZUREFILECONNECTIONSTRING
 #####1216追加
+#$azstoragestring = $Env:WEBSITE_CONTENTAZUREFILECONNECTIONSTRING
+$azstoragestring = $env:AzureWebJobsStorage
 if ([string]::IsNullOrWhiteSpace($azstoragestring)) {
-    throw "AzureWebJobsStorage is empty. Check Application Settings."
+  throw "AzureWebJobsStorage is empty. Check Application Settings."
 }
 #####
 $Context = New-AzStorageContext -ConnectionString $azstoragestring
@@ -324,6 +325,7 @@ Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
+
 
 
 
