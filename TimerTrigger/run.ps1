@@ -270,6 +270,11 @@ if (-Not [string]::IsNullOrEmpty($managementApi)){
 #add last run time to blob file to ensure no missed packages
 $endTime = $currentUTCtime | Get-Date -Format yyyy-MM-ddTHH:mm:ss
 $azstoragestring = $Env:WEBSITE_CONTENTAZUREFILECONNECTIONSTRING
+#####1216追加
+if ([string]::IsNullOrWhiteSpace($azstoragestring)) {
+    throw "AzureWebJobsStorage is empty. Check Application Settings."
+}
+#####
 $Context = New-AzStorageContext -ConnectionString $azstoragestring
 if((Get-AzStorageContainer -Context $Context).Name -contains "lastlog"){
     #Set Container
@@ -297,3 +302,4 @@ Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
+
