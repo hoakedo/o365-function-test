@@ -1,4 +1,5 @@
 ####1216check
+param($Timer)
 function Get-ConnInfo([string]$conn){
     if ([string]::IsNullOrWhiteSpace($conn)) {
         return "(null or empty)"
@@ -323,6 +324,7 @@ Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
+
 
 
 
