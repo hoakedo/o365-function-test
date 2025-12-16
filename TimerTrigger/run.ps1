@@ -1,3 +1,7 @@
+####1216check
+Write-Host ("StorageConn: " + ($env:WEBSITE_CONTENTAZUREFILECONNECTIONSTRING.Substring(0,40)) + "...")
+Write-Host ("AzureWebJobsStorage set?: " + [bool]$env:AzureWebJobsStorage)
+
 # Input bindings are passed in via param block.
 param($Timer)
 
@@ -302,4 +306,5 @@ Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
+
 
