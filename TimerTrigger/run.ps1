@@ -1,27 +1,5 @@
-####1216check
-param($Timer)
-function Get-ConnInfo([string]$conn){
-    if ([string]::IsNullOrWhiteSpace($conn)) {
-        return "(null or empty)"
-    }
-
-    $parts = $conn -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
-
-    $accountName = ($parts | Where-Object { $_ -like "AccountName=*" } | Select-Object -First 1) -replace "^AccountName=", ""
-    $endpointSuffix = ($parts | Where-Object { $_ -like "EndpointSuffix=*" } | Select-Object -First 1) -replace "^EndpointSuffix=", ""
-    $protocol = ($parts | Where-Object { $_ -like "DefaultEndpointsProtocol=*" } | Select-Object -First 1) -replace "^DefaultEndpointsProtocol=", ""
-
-    # AccountName すら空の可能性はあるので、その場合も潰さない
-    return "Protocol=$protocol; AccountName=$accountName; EndpointSuffix=$endpointSuffix"
-}
-
-Write-Host ("WEBSITE_RUN_FROM_PACKAGE=" + $env:WEBSITE_RUN_FROM_PACKAGE)
-Write-Host ("ContentShareConnInfo=" + (Get-ConnInfo $env:WEBSITE_CONTENTAZUREFILECONNECTIONSTRING))
-Write-Host ("AzureWebJobsStorageInfo=" + (Get-ConnInfo $env:AzureWebJobsStorage))
-
-
 # Input bindings are passed in via param block.
-#param($Timer)
+param($Timer)
 
 #Import-module .\TimerTrigger\modules\Write-OMSLogfile.ps1
 ###################################################################################
@@ -325,6 +303,7 @@ Get-O365Data $startTime $endTime $headerParams $env:tenantGuid
 
 # Write an information log with the current time.
 Write-Host "PowerShell timer trigger function ran! TIME: $currentUTCtime"
+
 
 
 
